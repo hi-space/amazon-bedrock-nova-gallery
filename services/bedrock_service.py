@@ -1,9 +1,13 @@
+from enum import Enum
 import boto3
 import re
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
+from genai_kit.aws.amazon_image import ImageParams, NovaImageSize, TitanImageSize
 from genai_kit.aws.claude import BedrockClaude
 from genai_kit.aws.bedrock import BedrockModel
+from genai_kit.aws.sd_image import BedrockStableDiffusion, SDImageSize
+from genai_kit.utils.converter import extract_xml_values
 from constants import VIDEO_PREFIX
 from config import config
 
@@ -56,7 +60,7 @@ def gen_mm_image_prompt(keyword: str,
             **model_kwargs
         )
         res = claude.invoke_llm_response(text=prompt, image=image)
-        return _extract_format(res)[0]
+        return extract_xml_values("prompt", res)[0]
     except Exception as e:
         print(e)
         return keyword
@@ -99,22 +103,78 @@ def gen_mm_video_prompt(keyword: str,
                 **model_kwargs
             )
         res = claude.invoke_llm_response(text=prompt, image=image)
-        return _extract_format(res)[0]
+        return extract_xml_values("prompt", res)[0]
     except Exception as e:
         print(e)
         return keyword
+    
 
-def gen_image(body: str, modelId: str):
-    bedrock = _get_bedrock_runtime()
-    response = bedrock.invoke_model(
-        body=body,
-        modelId=modelId,
-        accept="application/json",
-        contentType="application/json"
-    )
-    response_body = json.loads(response.get("body").read())
-    image = response_body.get("images")
-    return image
+def gen_image(model_type: BedrockModel,
+              prompt: str,
+              size: Union[TitanImageSize, NovaImageSize, SDImageSize],
+              count: Optional[int] = 1,
+              seed: Optional[int] = 0,
+              cfg: Optional[float] = 8.0,
+              color_guide: Optional[List[str]] = [], 
+              ):
+    configs = {}
+
+    if is_sd_model(model_type):
+        sd_image_gen = BedrockStableDiffusion(
+            modelId=model_type, 
+        )
+        configs = {
+            "prompt": prompt,
+            "mode": "text-to-image",
+            "aspect_ratio": size.value,
+            "seed": seed,
+            "output_format": "png"
+        }
+        image = sd_image_gen.invoke_model(
+            body = configs,
+        )
+        return [image], configs
+    
+    else:
+        bedrock = _get_bedrock_runtime()
+
+        img_params = ImageParams(seed=seed)
+        img_params.set_configuration(
+                count=count,
+                width=size.width,
+                height=size.height,
+                cfg=cfg
+            )
+
+        configs = img_params.get_configuration()
+
+        if len(color_guide) > 0:
+            body = img_params.color_guide(
+                text=prompt,
+                colors=color_guide
+            )
+            configs['colorGuide'] = color_guide
+        else:
+            body = img_params.text_to_image(
+                text=prompt
+            )
+
+        response = bedrock.invoke_model(
+            body=body,
+            modelId=model_type,
+            accept="application/json",
+            contentType="application/json"
+        )
+        response_body = json.loads(response.get("body").read())
+        image = response_body.get("images")
+        return image, configs
+
+def is_sd_model(model_type: str):
+    if model_type in [BedrockModel.SD3_LARGE,
+                      BedrockModel.STABLE_IMAGE_CORE,
+                      BedrockModel.STABLE_IMAGE_ULTRA]:
+        return True
+    return False
 
 
 def gen_video(text: str, image: str = None, params: dict = {}):
@@ -184,7 +244,3 @@ def _get_model_kwargs(temperature: Optional[float] = None,
     if top_k is not None:
         model_kwargs['top_k'] = top_k
     return model_kwargs
-
-def _extract_format(result_string):
-    pattern = r'<prompt>(.*?)</prompt>'
-    return re.findall(pattern, result_string)

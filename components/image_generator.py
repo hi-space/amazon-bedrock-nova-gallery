@@ -1,12 +1,14 @@
 import streamlit as st
 from typing import List
 from genai_kit.aws.amazon_image import ImageParams, TitanImageSize, NovaImageSize
+from genai_kit.aws.sd_image import SDImageSize
 from genai_kit.aws.bedrock import BedrockModel
 from genai_kit.utils.images import encode_image_base64, base64_to_bytes
 from services.bedrock_service import (
     gen_english,
     gen_mm_image_prompt,
     gen_image,
+    is_sd_model,
 )
 from session import SessionManager
 from enums import MediaType
@@ -102,7 +104,9 @@ def show_model_section():
     st.subheader("Select Image Model")
     model_type = st.selectbox(
         "Choose a model:",
-        [BedrockModel.NOVA_CANVAS.value, BedrockModel.TITAN_IMAGE.value]
+        [BedrockModel.NOVA_CANVAS, BedrockModel.TITAN_IMAGE,
+         BedrockModel.STABLE_IMAGE_CORE, BedrockModel.STABLE_IMAGE_ULTRA, BedrockModel.SD3_LARGE],
+         format_func=lambda x: x.name
     )
 
     st.session_state.model_type = model_type
@@ -120,30 +124,20 @@ def generate_image(session_manager: SessionManager):
     with st.status("Generating images...", expanded=True) as status:
         try:
             configs = st.session_state.generation_configs
-            img_params = ImageParams(seed=configs['seed'])
-            img_params.set_configuration(
+
+            model_type = BedrockModel(st.session_state.model_type)
+            imgs, configuration = gen_image(
+                prompt = st.session_state.image_prompt,
+                model_type=model_type,
+                size=configs['size'],
                 count=configs['num_images'],
-                width=configs['size'].width,
-                height=configs['size'].height,
-                cfg=configs['cfg_scale']
+                seed=configs['seed'],
+                cfg=configs['cfg_scale'],
+                color_guide=configs['selected_colors']
             )
 
-            configuration = img_params.get_configuration()
-            
-            if configs['use_colors']:
-                body = img_params.color_guide(
-                    text=st.session_state.image_prompt, 
-                    colors=configs['selected_colors']
-                )
-                configuration['colorGuide'] = configs['selected_colors']
-            else:
-                body = img_params.text_to_image(
-                    text=st.session_state.image_prompt
-                )
-            
-            model_type = BedrockModel(st.session_state.model_type)
-            imgs = gen_image(body=body, modelId=model_type)
-            
+            print(configuration)
+
             # Display prompt and generated image
             st.info(st.session_state.image_prompt)
             cols = st.columns(len(imgs))
@@ -154,8 +148,8 @@ def generate_image(session_manager: SessionManager):
             
                 # Add to history
                 session_manager.add_to_history(
+                    prompt=st.session_state.image_prompt,
                     media_type = MediaType.IMAGE,
-                    prompt = st.session_state.image_prompt,
                     model_type = model_type,
                     media_file=image_data,
                     details = configuration,
@@ -170,21 +164,32 @@ def generate_image(session_manager: SessionManager):
         finally:
             st.session_state.is_generating_image = False
 
-def _get_model_configurations(model_type):
-    num_images = st.slider("Number of Images", 1, 5, 1)
-    cfg_scale = st.slider("CFG Scale", 1.0, 10.0, 8.0, 0.5)
+def _get_model_configurations(model_type: str):
+    disabled = is_sd_model(model_type)
+    num_images = st.slider("Number of Images", 1, 5, 1, disabled=disabled)
+    cfg_scale = st.slider("CFG Scale", 1.0, 10.0, 8.0, 0.5, disabled=disabled)
     seed = st.number_input("Seed", 0, 2147483646, 0)
     
-    if model_type == BedrockModel.TITAN_IMAGE.value:
+    # size
+    if model_type == BedrockModel.TITAN_IMAGE:
         size_enum = TitanImageSize
-    elif model_type == BedrockModel.NOVA_CANVAS.value:
+        size_options = {f"{size.width} X {size.height}": size for size in size_enum}
+    elif model_type == BedrockModel.NOVA_CANVAS:
         size_enum = NovaImageSize
-    size_options = {f"{size.width} X {size.height}": size for size in size_enum}
+        size_options = {f"{size.width} X {size.height}": size for size in size_enum}
+    else: # stable diffusion models
+        size_enum = SDImageSize
+        size_options = {size.value: size for size in size_enum}
+    
     selected_size = st.selectbox("Image Size", options=list(size_options.keys()))
     
-    use_colors = st.checkbox("Using color references")
+    # color guide
+    use_colors = st.checkbox(
+        "Using color references",
+        disabled=disabled
+    )
     selected_colors = []
-    
+
     if use_colors:
         selected_colors = _handle_color_selection()
         st.session_state.use_colors = True
@@ -192,7 +197,7 @@ def _get_model_configurations(model_type):
     else:
         st.session_state.use_colors = False
         st.session_state.selected_colors = []
-    
+
     return {
         'num_images': num_images,
         'cfg_scale': cfg_scale,

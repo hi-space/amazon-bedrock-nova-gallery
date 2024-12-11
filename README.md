@@ -14,8 +14,10 @@ Amazon Bedrock의 생성형 AI 모델 Nova를 활용하여 이미지와 비디�
 
 애플리케이션은 4개의 주요 탭으로 구성되어 있습니다.
 
-### 1. 이미지 생성기 - `Nova Canvas`, `Titan Imag Generator v2`
+### 1. 이미지 생성기
 
+- 지원 모델
+  - `Nova Canvas`, `Titan Imag Generator v2`, `Stable Diffusion3 Large`, `Stable Image Core`, `Stable Image Ultra`
 - LLM 기반 프롬프트 개선 (텍스트, 이미지)
   - `Basic Prompt`: 입력한 prompt를 영문으로 변경
   - `Augmented Prompt`: 입력한 prompt와 이미지를 기반으로 프롬프트 작성
@@ -27,6 +29,8 @@ Amazon Bedrock의 생성형 AI 모델 Nova를 활용하여 이미지와 비디�
 
 ### 2. 비디오 생성기 - `Nova Reel`
 
+- 지원 모델
+  - `Nova Reel`
 - LLM 기반 프롬프트 개선 (텍스트, 이미지)
   - `Basic Prompt`: 입력한 prompt를 영문으로 변경
   - `Augmented Prompt`: 입력한 prompt와 이미지를 기반으로 프롬프트 작성

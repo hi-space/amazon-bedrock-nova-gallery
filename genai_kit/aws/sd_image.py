@@ -1,5 +1,6 @@
 import boto3
 import json
+from enum import Enum
 from botocore.config import Config
 from genai_kit.utils.random import seed
 
@@ -19,16 +20,12 @@ class BedrockStableDiffusion():
         )
 
     def invoke_model(self, body: dict):
-        try:
-            response = self.bedrock.invoke_model(
-                body=json.dumps(body),
-                modelId=self.modelId
-            )
-            response_body = json.loads(response.get("body").read())
-            return response_body["images"][0]
-        except Exception as e:
-            print(f"Cannot generate a image: {e}")
-            return []
+        response = self.bedrock.invoke_model(
+            body=json.dumps(body),
+            modelId=self.modelId
+        )
+        response_body = json.loads(response.get("body").read())
+        return response_body["images"][0]
 
     def text_to_image(self,
                       prompt: str,
@@ -61,3 +58,15 @@ class BedrockStableDiffusion():
         }
 
         return self.invoke_model(body=body)
+
+
+class SDImageSize(Enum):
+    SIZE_1_1 = "1:1"
+    SIZE_16_9 = "16:9"
+    SIZE_21_9 = "21:9"
+    SIZE_2_3 = "2:3"
+    SIZE_3_2 = "3:2"
+    SIZE_4_5 = "4:5"
+    SIZE_5_4 = "5:4"
+    SIZE_9_16 = "9:16"
+    SIZE_9_32 = "9:32"
