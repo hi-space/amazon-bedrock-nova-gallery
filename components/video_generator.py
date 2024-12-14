@@ -9,7 +9,7 @@ from services.bedrock_service import (
     get_video_job,
 )
 from session import SessionManager
-from enums import MediaType
+from constants import MediaType
 
 
 def show_video_generator(session_manager: SessionManager):

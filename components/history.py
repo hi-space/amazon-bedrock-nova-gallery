@@ -2,7 +2,7 @@ import json
 import streamlit as st
 from typing import List
 from genai_kit.utils.images import base64_to_image
-from enums import MediaType
+from constants import MediaType
 from utils import format_datetime
 
 
@@ -37,9 +37,12 @@ def display_history_item(item):
     
     with col2:
         media_type = item['media_type']
+        details = json.loads(json.dumps(item['details'], default=float))
+        task_type = f"{media_type} ➡️ {details.get('taskType', '')}" if isinstance(details, dict) else media_type
+                
         st.text(item['id'])
         st.text(format_datetime(item['created_at'], seconds=True))
-        st.text(media_type)
+        st.text(task_type)
         st.text(item['model_type'])
 
         ref_image = item.get('ref_image', None)
@@ -56,7 +59,7 @@ def display_history_item(item):
         elif url and media_type == MediaType.VIDEO.value:
             st.video(url)
                 
-        st.json(json.loads(json.dumps(item['details'], default=float)))
+        st.json(details)
 
 
 def _get_emoji(media_type: str):

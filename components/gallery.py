@@ -1,7 +1,7 @@
 import json
 import streamlit as st
 from typing import List, Dict, Any
-from enums import MediaType
+from constants import MediaType
 from utils import format_datetime
 
 

@@ -15,7 +15,7 @@ class Settings(BaseModel):
 
 
 def get_secrets_from_manager():
-    SECRET_NAME = "bedrock-gallery"
+    SECRET_NAME = "nova-gallery"
     try:
         session = boto3.session.Session()
         client = session.client(service_name='secretsmanager')
@@ -23,6 +23,7 @@ def get_secrets_from_manager():
         secrets = json.loads(get_secret_value_response['SecretString'])
         return Settings(**secrets)
     except Exception as e:
+        print(e)
         return None
 
 

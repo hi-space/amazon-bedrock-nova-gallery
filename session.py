@@ -3,7 +3,7 @@ from typing import Dict, Any, BinaryIO, Optional
 from genai_kit.aws.bedrock import BedrockModel
 from services.storage_service import StorageService
 from config import config
-from enums import MediaType
+from constants import MediaType
 
 
 class SessionManager:
@@ -49,3 +49,6 @@ class SessionManager:
 
     def clear_history(self):
         st.session_state.request_history = []
+        return self.storage_service.clear_all_items()
+
+        

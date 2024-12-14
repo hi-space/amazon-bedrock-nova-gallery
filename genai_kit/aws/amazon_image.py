@@ -183,7 +183,6 @@ class ImageParams:
                 "text": text,
                 "image": image,
                 "maskPrompt": mask_prompt,
-                "returnMask": False,
             }
         }
 
@@ -206,7 +205,6 @@ class ImageParams:
                 "text": text,
                 "image": image,
                 "maskPrompt": mask_prompt,
-                "returnMask": False,
                 "outPaintingMode": "DEFAULT",  # ["DEFAULT" | "PRECISE"]
             }
         }

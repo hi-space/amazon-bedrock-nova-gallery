@@ -11,7 +11,7 @@ from services.bedrock_service import (
     is_sd_model,
 )
 from session import SessionManager
-from enums import MediaType
+from constants import MediaType
 
 
 def show_image_generator(session_manager: SessionManager):

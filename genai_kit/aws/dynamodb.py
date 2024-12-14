@@ -41,6 +41,22 @@ class DynamoDB:
         
     def scan_items(self, query):
         return self.table.scan(**query)
+    
+    def delete_all_items(self):
+        scan = self.table.scan()
+        with self.table.batch_writer() as batch:
+            for item in scan['Items']:
+                batch.delete_item(Key={
+                    'id': item['id']
+                })
+        
+        while 'LastEvaluatedKey' in scan:
+            scan = self.table.scan(ExclusiveStartKey=scan['LastEvaluatedKey'])
+            with self.table.batch_writer() as batch:
+                for item in scan['Items']:
+                    batch.delete_item(Key={
+                        'id': item['id']
+                    })
 
 
 def _default_serializer(obj):

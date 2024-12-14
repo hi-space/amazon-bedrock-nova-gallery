@@ -7,9 +7,8 @@ from genai_kit.aws.dynamodb import DynamoDB
 from genai_kit.utils.random import random_id
 from services.bedrock_service import list_video_job
 from utils import extract_key_from_uri
-from enums import MediaType
 from config import config
-from constants import IMAGE_PREFIX, VIDEO_OUTPUT_FILE, VIDEO_PREFIX
+from constants import IMAGE_PREFIX, VIDEO_OUTPUT_FILE, VIDEO_PREFIX, MediaType
 
 
 class StorageService:
@@ -202,3 +201,19 @@ class StorageService:
         except Exception as e:
             raise Exception(f"Failed to upload image to S3: {str(e)}")
         
+    def clear_all_items(self):
+        try:
+            self.dynamodb.delete_all_items()
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            for page in paginator.paginate(Bucket=self.bucket_name):
+                objects = page.get('Contents', [])
+                if objects:
+                    delete_keys = [{'Key': obj['Key']} for obj in objects]
+                    self.s3_client.delete_objects(
+                        Bucket=self.bucket_name,
+                        Delete={'Objects': delete_keys}
+                    )
+            return True
+        except Exception as e:
+            print(e)
+            return False

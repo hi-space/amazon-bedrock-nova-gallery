@@ -3,10 +3,23 @@ import streamlit as st
 from components.gallery import show_gallery
 from components.image_generator import show_image_generator
 from components.video_generator import show_video_generator
+from components.image_editor import show_image_editor
 from components.history import show_history
 from session import SessionManager
 from styles import load_styles
-from enums import MediaType
+from constants import MediaType
+
+
+@st.dialog("전체 기록 삭제")
+def confirm_delete(session_manager: SessionManager):
+    st.text("생성된 모든 기록을 삭제하시겠습니까?")
+    if st.button("Submit", use_container_width=True):
+        success = session_manager.clear_history()
+        if success:
+            st.success("삭제를 완료했습니다")
+        else:
+            st.error("삭제에 실패했습니다")
+        
 
 
 def main():
@@ -23,9 +36,11 @@ def main():
 - DynamoDB Table
 """)
     
+    session_manager = SessionManager()
+    
     # Create tabs
-    image_generator_tab, video_generator_tab, gallery_tab, history_tab = st.tabs([
-        "🎨 Generator", "🎥 Generator", "🖼️ Gallery", "📋 History"
+    image_generator_tab, image_editing_tab, video_generator_tab, gallery_tab, history_tab = st.tabs([
+        "🎨 Generator", "🖌️ Editing", "🎥 Generator", "🖼️ Gallery", "📋 History"
     ])
     
     # Sidebar Options
@@ -40,7 +55,9 @@ def main():
         cols_history = st.slider("히스토리 열 수 설정", min_value=1, max_value=3, value=1)
         show_details = st.checkbox("상세 정보 표시", value=False)
 
-    session_manager = SessionManager()
+    with st.sidebar.expander("**데이터 관리**", icon='⚠️', expanded=True):
+        if st.button("전체 삭제", icon="🚨", use_container_width=True):
+            confirm_delete(session_manager)
 
     with image_generator_tab:
         show_image_generator(session_manager)
@@ -48,7 +65,10 @@ def main():
     with video_generator_tab:
         show_video_generator(session_manager)
 
-    media_items = get_media_items(session_manager, filter_type)    
+    with image_editing_tab:
+        show_image_editor(session_manager)
+
+    media_items = get_media_items(session_manager, filter_type)
     with gallery_tab:
         show_gallery(media_items, cols_gallery, show_details)
 

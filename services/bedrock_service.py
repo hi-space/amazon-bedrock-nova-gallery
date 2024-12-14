@@ -8,7 +8,7 @@ from genai_kit.aws.claude import BedrockClaude
 from genai_kit.aws.bedrock import BedrockModel
 from genai_kit.aws.sd_image import BedrockStableDiffusion, SDImageSize
 from genai_kit.utils.converter import extract_xml_values
-from constants import VIDEO_PREFIX
+from constants import VIDEO_PREFIX, EditingMode
 from config import config
 
 
@@ -107,7 +107,7 @@ def gen_mm_video_prompt(keyword: str,
     except Exception as e:
         print(e)
         return keyword
-    
+
 
 def gen_image(model_type: BedrockModel,
               prompt: str,
@@ -117,13 +117,12 @@ def gen_image(model_type: BedrockModel,
               cfg: Optional[float] = 8.0,
               color_guide: Optional[List[str]] = [], 
               ):
-    configs = {}
-
+    
     if is_sd_model(model_type):
         sd_image_gen = BedrockStableDiffusion(
             modelId=model_type, 
         )
-        configs = {
+        body = {
             "prompt": prompt,
             "mode": "text-to-image",
             "aspect_ratio": size.value,
@@ -131,13 +130,11 @@ def gen_image(model_type: BedrockModel,
             "output_format": "png"
         }
         image = sd_image_gen.invoke_model(
-            body = configs,
+            body = body,
         )
-        return [image], configs
+        return [image], body
     
     else:
-        bedrock = _get_bedrock_runtime()
-
         img_params = ImageParams(seed=seed)
         img_params.set_configuration(
                 count=count,
@@ -146,28 +143,91 @@ def gen_image(model_type: BedrockModel,
                 cfg=cfg
             )
 
-        configs = img_params.get_configuration()
-
         if len(color_guide) > 0:
             body = img_params.color_guide(
                 text=prompt,
                 colors=color_guide
             )
-            configs['colorGuide'] = color_guide
         else:
             body = img_params.text_to_image(
                 text=prompt
             )
 
-        response = bedrock.invoke_model(
-            body=body,
-            modelId=model_type,
-            accept="application/json",
-            contentType="application/json"
+        image = invoke_bedrock(model_type, body)
+        return image, json.loads(body)
+
+
+def edit_image(model_type: BedrockModel,
+               editing_mode: EditingMode,
+               size: Union[TitanImageSize, NovaImageSize],
+               text: Optional[str] = None,
+               negative_text: Optional[str] = None,
+               mask_prompt: Optional[str] = None,
+               ref_image: Optional[str] = None,
+               count: Optional[int] = 1,
+               seed: Optional[int] = 0,
+               cfg: Optional[float] = 8.0,
+              ):
+    
+    img_params = ImageParams(seed=seed)
+    img_params.set_configuration(
+            count=count,
+            width=size.width,
+            height=size.height,
+            cfg=cfg
         )
-        response_body = json.loads(response.get("body").read())
-        image = response_body.get("images")
-        return image, configs
+
+    body = ""
+    if editing_mode == EditingMode.IMAGE_VARIATION:
+        body = img_params.image_variant(
+            images=[ref_image],
+            text = text
+        )
+    elif editing_mode == EditingMode.INPAINTING:
+        body = img_params.inpainting(
+            image=ref_image,
+            mask_prompt=mask_prompt,
+            text=text,
+            negative_text=negative_text
+        )
+    elif editing_mode == EditingMode.OUTPAINTING:
+        body = img_params.outpainting(
+            image=ref_image,
+            mask_prompt=mask_prompt,
+            text=text,
+            negative_text=negative_text
+        )
+    elif editing_mode == EditingMode.IMAGE_CONDITIONING:
+        body = img_params.text_to_image(
+            text=text,
+            condition_image=ref_image
+        )
+    elif editing_mode == EditingMode.BACKGROUND_REMOVAL:
+        body = img_params.background_removal(
+            image=ref_image
+        )
+    else:
+        body = img_params.text_to_image(
+            text=text,
+            negative_text=negative_text,
+        )
+
+    image = invoke_bedrock(model_type, body)
+    return image, json.loads(body)
+
+
+def invoke_bedrock(model_type: str, body: str):
+    bedrock = _get_bedrock_runtime()
+    response = bedrock.invoke_model(
+        body=body,
+        modelId=model_type,
+        accept="application/json",
+        contentType="application/json"
+    )
+    response_body = json.loads(response.get("body").read())
+    image = response_body.get("images")
+    return image
+
 
 def is_sd_model(model_type: str):
     if model_type in [BedrockModel.SD3_LARGE,
@@ -244,3 +304,4 @@ def _get_model_kwargs(temperature: Optional[float] = None,
     if top_k is not None:
         model_kwargs['top_k'] = top_k
     return model_kwargs
+
