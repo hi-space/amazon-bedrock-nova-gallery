@@ -38,7 +38,10 @@ def display_history_item(item):
     with col2:
         media_type = item['media_type']
         details = json.loads(json.dumps(item['details'], default=float))
-        task_type = f"{media_type} ➡️ {details.get('taskType', '')}" if isinstance(details, dict) else media_type
+
+        task_type = media_type
+        if media_type == MediaType.IMAGE.value and isinstance(details, dict):
+            task_type = f"{media_type} ➡️ {details.get('taskType', '')}"
                 
         st.text(item['id'])
         st.text(format_datetime(item['created_at'], seconds=True))

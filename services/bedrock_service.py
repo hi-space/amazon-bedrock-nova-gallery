@@ -60,7 +60,8 @@ def gen_mm_image_prompt(keyword: str,
             **model_kwargs
         )
         res = claude.invoke_llm_response(text=prompt, image=image)
-        return extract_xml_values("prompt", res)[0]
+        print(res)
+        return extract_xml_values(res, "prompt")[0]
     except Exception as e:
         print(e)
         return keyword
@@ -103,7 +104,7 @@ def gen_mm_video_prompt(keyword: str,
                 **model_kwargs
             )
         res = claude.invoke_llm_response(text=prompt, image=image)
-        return extract_xml_values("prompt", res)[0]
+        return extract_xml_values(res, "prompt")[0]
     except Exception as e:
         print(e)
         return keyword

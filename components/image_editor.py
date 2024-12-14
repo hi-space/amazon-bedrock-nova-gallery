@@ -43,7 +43,11 @@ def initialize_session_state():
 def show_input_image_section():
     st.subheader("Reference Image")
 
-    reference_image = st.file_uploader("Upload a reference image:", type=['png', 'jpg', 'jpeg'])
+    reference_image = st.file_uploader(
+        "Upload a reference image:",
+        type=['png', 'jpg', 'jpeg'],
+        key="edit_ref_image_uploader"
+    )
     if reference_image:
         st.image(reference_image, caption="Reference Image")
         st.session_state.ref_image = encode_image_base64(reference_image)
