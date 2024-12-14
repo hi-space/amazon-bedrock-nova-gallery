@@ -42,4 +42,6 @@ def display_media_item(item: Dict[str, Any], show_details: bool):
                 st.markdown("**상세 정보:**")
                 st.json(json.loads(json.dumps(details, default=float)), expanded=False)
     else:
-        container.caption(f"_{item.get('prompt', '')}_")
+        prompt = item.get('prompt', '')
+        if len(prompt) > 0:
+            container.caption(f"_{prompt}_")

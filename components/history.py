@@ -38,8 +38,9 @@ def display_history_item(item):
     with col2:
         media_type = item['media_type']
         details = json.loads(json.dumps(item['details'], default=float))
-
         task_type = media_type
+        prompt = item.get('prompt', '')
+
         if media_type == MediaType.IMAGE.value and isinstance(details, dict):
             task_type = f"{media_type} ➡️ {details.get('taskType', '')}"
                 
@@ -52,7 +53,8 @@ def display_history_item(item):
         if ref_image:            
             st.image(base64_to_image(ref_image),width=400)
 
-        st.code(item.get('prompt', ''), wrap_lines=True, language='txt')
+        if len(prompt) > 0:
+            st.code(prompt, wrap_lines=True, language='txt')
 
         st.divider()
         
