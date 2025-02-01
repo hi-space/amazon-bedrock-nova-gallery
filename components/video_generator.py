@@ -2,6 +2,7 @@ import streamlit as st
 from PIL import Image
 from genai_kit.aws.bedrock import BedrockModel
 from genai_kit.utils.images import encode_image_base64, resize_image
+from genai_kit.aws.amazon_video import LumaDuration, LumaSize
 from services.bedrock_service import (
     gen_english,
     gen_mm_video_prompt,
@@ -106,14 +107,14 @@ def show_video_model_section():
     st.subheader("Select Video Model")
     model_type = st.selectbox(
         "Choose a model:",
-        [BedrockModel.NOVA_REAL.value],
+        [BedrockModel.NOVA_REEL.value, BedrockModel.LUMA_RAY2.value],
         key="video_model_select"
     )
 
     st.session_state.video_model_type = model_type
 
     with st.expander("Video Configuration", expanded=True):
-        configs = _get_video_model_configurations()
+        configs = _get_video_model_configurations(model_type)
         st.session_state.video_generation_configs = configs
     
     return st.button("Generate Videos", icon='🎥', type="primary", use_container_width=True, key="video_generate_btn")
@@ -127,6 +128,7 @@ def generate_video(session_manager: SessionManager):
             configs = st.session_state.video_generation_configs
                         
             invocation_arn = gen_video(
+                model_type=BedrockModel(st.session_state.video_model_type),
                 text=st.session_state.video_generation_prompt,
                 image=st.session_state.video_generation_image,
                 params=configs
@@ -151,21 +153,57 @@ def generate_video(session_manager: SessionManager):
             status.update(label=f"Error: {str(e)}", state="error")
             st.error(f"비디오 생성 중 오류가 발생했습니다: {str(e)}")
         
-def _get_video_model_configurations():
-    duration = st.slider("Duration", 1, 30, 6, 1, key="video_duration_slider", disabled=True)
-    fps = st.number_input("FPS", 24, key="video_fps_input", disabled=True)
-    seed = st.number_input("Seed", 0, 2147483646, 0, key="video_seed_input")
-    dimension_options = {
-        "1280x720"
-    }
-
-    selected_resolution = st.selectbox("Video Resolution", 
-                                     options=list(dimension_options),
-                                     key="video_resolution_select")
+def _get_video_model_configurations(model_type: str):
     
-    return {
-        'durationSeconds': duration,
-        'fps': fps,
-        'dimension': selected_resolution,
-        'seed': seed,
-    }
+    if model_type == BedrockModel.NOVA_REEL:
+        duration = st.slider("Duration", 1, 30, 6, 1, key="video_duration_slider", disabled=True)
+        fps = st.number_input("FPS", 24, key="video_fps_input", disabled=True)
+        seed = st.number_input("Seed", 0, 2147483646, 0, key="video_seed_input")
+        dimension_options = {
+            "1280x720"
+        }
+
+        selected_resolution = st.selectbox("Video Resolution", 
+                                        options=list(dimension_options),
+                                        key="video_resolution_select")
+        
+        return {
+            'durationSeconds': duration,
+            'fps': fps,
+            'dimension': selected_resolution,
+            'seed': seed,
+        }
+
+    elif model_type == BedrockModel.LUMA_RAY2:
+        duration = st.selectbox(
+            "Duration",
+            options=[duration.value for duration in LumaDuration],
+            key="video_duration_select"
+        )
+        
+        aspect_ratio = st.selectbox(
+            "Aspect Ratio",
+            options=[size.value for size in LumaSize],
+            key="video_aspect_ratio_select"
+        )
+        
+        seed = st.number_input(
+            "Seed",
+            min_value=0,
+            max_value=2147483646,
+            value=0,
+            key="video_seed_input"
+        )
+        
+        loop = st.checkbox(
+            "Loop",
+            value=False,
+            key="video_loop_checkbox"
+        )
+        
+        return {
+            'duration': duration,
+            'aspectRatio': aspect_ratio,
+            'seed': seed,
+            'loop': loop
+        }

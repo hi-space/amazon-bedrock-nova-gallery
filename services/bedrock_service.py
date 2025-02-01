@@ -237,28 +237,44 @@ def is_sd_model(model_type: str):
         return True
     return False
 
+def is_luma_model(model_type: str):
+    if model_type in [BedrockModel.LUMA_RAY2]:
+        return True
+    return False
 
-def gen_video(text: str, image: str = None, params: dict = {}):
-    bedrock = _get_bedrock_runtime()
+def gen_video(model_type: BedrockModel, text: str, image: str = None, params: dict = {}):
+    if is_luma_model(model_type):
+        bedrock = _get_bedrock_runtime(region='us-west-2')
+        
+        model_input = {
+            "prompt": text,
+            "aspect_ratio": params.get('aspectRatio', '16:9'),
+            "duration": params.get('duration', '5s'),
+            "seed": params.get('seed', 0),
+            "resolution": '720p',
+            "loop": params.get('loop', True),
+        }
+    else:
+        bedrock = _get_bedrock_runtime()
     
-    model_input = {
-        "taskType": "TEXT_VIDEO",
-        "textToVideoParams": {
-            "text": text
-        },
-        "videoGenerationConfig": params,
-    }
+        model_input = {
+            "taskType": "TEXT_VIDEO",
+            "textToVideoParams": {
+                "text": text
+            },
+            "videoGenerationConfig": params,
+        }
 
-    if image:
-        model_input["textToVideoParams"]["images"] = [{
-            "format": "png",
-            "source": {
-                "bytes": image
-            }
-        }]
+        if image:
+            model_input["textToVideoParams"]["images"] = [{
+                "format": "png",
+                "source": {
+                    "bytes": image
+                }
+            }]
 
     invocation = bedrock.start_async_invoke(
-        modelId=BedrockModel.NOVA_REAL,
+        modelId=model_type,
         modelInput=model_input,
         outputDataConfig={
             "s3OutputDataConfig": {
@@ -288,10 +304,10 @@ def list_video_job(status: str = None, max_results: int = None):
     jobs = bedrock.list_async_invokes(**params)
     return jobs.get("asyncInvokeSummaries", [])
 
-def _get_bedrock_runtime():
+def _get_bedrock_runtime(region: str = config.BEDROCK_REGION):
     return boto3.client(
             service_name = 'bedrock-runtime',
-            region_name=config.BEDROCK_REGION
+            region_name=region
     )
 
 def _get_model_kwargs(temperature: Optional[float] = None,

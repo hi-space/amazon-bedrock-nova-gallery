@@ -6,6 +6,7 @@ from typing import List, Optional
 from botocore.config import Config
 from genai_kit.aws.bedrock import BedrockModel
 from genai_kit.aws.s3 import S3
+from genai_kit.utils.random import seed
 
 
 class VideoStatus(Enum):
@@ -14,11 +15,26 @@ class VideoStatus(Enum):
     IN_PROGRESS = "InProgress"
 
 
+
+class LumaDuration(Enum):
+    DURATION_5 = "5s"
+    DURATION_9 = "9s"
+    
+class LumaSize(Enum):
+    SIZE_1_1 = "1:1"
+    SIZE_3_4 = "3:4"
+    SIZE_4_3 = "4:3"
+    SIZE_16_9 = "16:9"
+    SIZE_9_16 = "9:16"
+    SIZE_21_9 = "21:9"
+    SIZE_9_21 = "9:21"
+    
+    
 class BedrockAmazonVideo():
     def __init__(self,
                  bucket_name: str,
                  region='us-east-1',
-                 modelId = BedrockModel.NOVA_REAL):
+                 modelId = BedrockModel.NOVA_REEL):
         self.bucket_name = bucket_name
         self.region = region
         self.modelId = modelId
@@ -44,11 +60,6 @@ class BedrockAmazonVideo():
         """
         Generate a video from text with an optional input image and seed.
         
-        Args:
-            text (str): The text prompt for video generation
-            imageBase64 (Optional[str]): Base64 encoded image string if using image-to-video
-            seed (Optional[int]): Seed for video generation randomness
-            
         Returns:
             str: The invocation ARN for the async task
         """
@@ -72,18 +83,29 @@ class BedrockAmazonVideo():
                     "bytes": image
                 }
             }]
+            
+        return self._generate_video(model_input)
 
-        invocation = self.bedrock.start_async_invoke(
-            modelId=self.modelId,
-            modelInput=model_input,
-            outputDataConfig={
-                "s3OutputDataConfig": {
-                    "s3Uri": f"s3://{self.bucket_name}"
-                }
-            }
-        )
-        return invocation['invocationArn']
+    def generate_luma_video(
+        self,
+        prompt: str,
+        aspect_ratio: str = LumaSize.SIZE_16_9.value,
+        duration: str = LumaDuration.DURATION_9.value,
+        seed: int = seed(),
+        resolution: str = '720p',
+        loop=True
+    ) -> str:
+        body = {
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+            "duration": duration,
+            "seed": seed,
+            "resolution": resolution,
+            "loop": loop,
+        }
         
+        return self._generate_video(body=body)
+
     def query_job(self, invocation_arn: str):
         invocation = self.bedrock.get_async_invoke(
             invocationArn=invocation_arn
@@ -125,3 +147,16 @@ class BedrockAmazonVideo():
         s3 = S3(bucket_name=self.bucket_name)
         key = s3.extract_key_from_uri(s3Uri)
         return s3.get_object(f"{key}/output.mp4")
+    
+
+    def _generate_video(self, body: dict):
+        invocation = self.bedrock.start_async_invoke(
+            modelId=self.modelId,
+            modelInput=body,
+            outputDataConfig={
+                "s3OutputDataConfig": {
+                    "s3Uri": f"s3://{self.bucket_name}"
+                }
+            }
+        )
+        return invocation['invocationArn']

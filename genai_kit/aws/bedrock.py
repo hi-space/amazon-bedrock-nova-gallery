@@ -23,7 +23,9 @@ class BedrockModel(str, Enum):
     NOVA_PRO = "amazon.nova-pro-v1:0"
     NOVA_LITE = "amazon.nova-lite-v1:0"
     NOVA_CANVAS = 'amazon.nova-canvas-v1:0'
-    NOVA_REAL = "amazon.nova-reel-v1:0"
+    NOVA_REEL = "amazon.nova-reel-v1:0"
+    
+    LUMA_RAY2 = "luma.ray-v2:0"
 
 
 class BedrockWrapper():
